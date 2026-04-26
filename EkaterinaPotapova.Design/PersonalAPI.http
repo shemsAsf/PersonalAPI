@@ -1,0 +1,6 @@
+@PersonalAPI_HostAddress = http://localhost:5126
+
+GET {{PersonalAPI_HostAddress}}/
+Accept: application/json
+
+###
