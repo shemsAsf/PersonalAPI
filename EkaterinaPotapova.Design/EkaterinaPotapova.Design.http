@@ -1,0 +1,6 @@
+@EkaterinaPotapova.Design_HostAddress = http://localhost:5126
+
+GET {{EkaterinaPotapova.Design_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -1,0 +1,23 @@
+# Build
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Rider / VS Code
+.idea/
+.vscode/
+
+# Logs & DB
+*.log
+*.db
+
+# OS
+.DS_Store
+Thumbs.db
+
+# App settings (optional)
+appsettings.Development.json
