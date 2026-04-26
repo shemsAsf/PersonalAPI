@@ -1,6 +1,0 @@
-@PersonalPortfolio_HostAddress = http://localhost:5004
-
-GET {{PersonalPortfolio_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
