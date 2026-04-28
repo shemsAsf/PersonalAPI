@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using PersonalApi.Auth;
 using PersonalApi.Database;
+using PersonalApi.Storage;
 using PersonalAPI.GlobalEndpoints;
 using PersonalAPI.Projects.EkaterinaPotapovaDesign;
 using PersonalAPI.Projects.Portfolio;
@@ -36,6 +37,11 @@ builder.Services.AddAuthentication()
 builder.Services.AddAuthorization();
 
 builder.Services.AddDbContext<AppDbContext>();
+
+var r2Settings = builder.Configuration.GetSection("R2").Get<R2Settings>()!;
+
+builder.Services.AddSingleton(r2Settings);
+builder.Services.AddSingleton<R2Service>();
 
 var app = builder.Build();
 
