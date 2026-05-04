@@ -1,4 +1,6 @@
-﻿using Amazon.S3;
+﻿using Amazon.Runtime.Internal;
+using Amazon.Runtime.Internal.Endpoints.StandardLibrary;
+using Amazon.S3;
 using Amazon.S3.Model;
 
 namespace PersonalApi.Storage
@@ -14,7 +16,7 @@ namespace PersonalApi.Storage
     }
 
 
-    public class R2Service
+    public class R2Service : IR2Service
     {
         private readonly AmazonS3Client _client;
         private readonly R2Settings _settings;
@@ -42,8 +44,7 @@ namespace PersonalApi.Storage
         public async Task<string?> GetTextAsync(string path)
         {
             try
-            {
-                Console.WriteLine("printing settings " + _settings.BucketName); 
+            { 
                 var response = await _client.GetObjectAsync(_settings.BucketName, path);
                 using var reader = new StreamReader(response.ResponseStream);
                 return await reader.ReadToEndAsync();
@@ -55,7 +56,21 @@ namespace PersonalApi.Storage
         }
 
         /// <summary>
-        /// Upload a file (to use only in admin endpoints)
+        /// Upload a file from a form (admin endpoints only)
+        /// </summary>
+        /// <param name="file"></param>
+        /// <param name="folder"></param>
+        /// <returns></returns>
+        public async Task<string> PutFormFileAsync(IFormFile file, string folder)
+        {
+            var key = $"{folder.TrimEnd('/')}/{file.FileName}";
+            using var stream = file.OpenReadStream();
+            await PutFileAsync(key, stream, file.ContentType);
+            return key;
+        }
+
+        /// <summary>
+        /// Upload a file from a stream (admin endpoints only)
         /// </summary>
         /// <param name="path"></param>
         /// <param name="content"></param>
@@ -63,12 +78,19 @@ namespace PersonalApi.Storage
         /// <returns></returns>
         public async Task PutFileAsync(string path, Stream content, string contentType)
         {
+            using var ms = new MemoryStream();
+            await content.CopyToAsync(ms);
+            ms.Position = 0;
+
             await _client.PutObjectAsync(new PutObjectRequest
             {
                 BucketName = _settings.BucketName,
                 Key = path,
-                InputStream = content,
-                ContentType = contentType
+                InputStream = ms,
+                ContentType = contentType,
+                DisablePayloadSigning = true,
+                UseChunkEncoding = false,
+                AutoCloseStream = false
             });
         }
 
@@ -87,6 +109,42 @@ namespace PersonalApi.Storage
         /// </summary>
         /// <param name="path"></param>
         /// <returns></returns>
-        public string GetPublicUrl(string path) => $"{_settings.PublicBaseUrl}/{path}";
+        public string GetPublicUrl(string path) => path.StartsWith(_settings.PublicBaseUrl) ? 
+            path :
+            $"{_settings.PublicBaseUrl}/{path}";
+
+        /// <summary>
+        /// Get every public Url from  a specified folder
+        /// </summary>
+        /// <param name="path"></param>
+        /// <returns></returns>
+        public async Task<List<string>> GetAllPublicUrl(string path)
+        {
+            var request = new ListObjectsV2Request
+            {
+                BucketName = _settings.BucketName,
+                Prefix = path
+            };
+
+            List<string> urls = new();
+            ListObjectsV2Response response;
+            do
+            {
+                response = await _client.ListObjectsV2Async(request);
+
+                foreach (var obj in response.S3Objects)
+                {
+                    if (obj.Key.EndsWith("/")) continue;
+
+                    var publicUrl = $"{_settings.PublicBaseUrl}/{obj.Key}";
+                    urls.Add(publicUrl);
+                }
+
+                request.ContinuationToken = response.NextContinuationToken;
+
+            } while (response.IsTruncated);
+
+            return urls;
+        }
     }
 }
