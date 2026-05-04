@@ -9,7 +9,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalApi.Tests", "MyPort
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "MyPortfolioApi", "MyPortfolioApi", "{54004132-D1BE-3A46-C289-BBEC96C0F55A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalAPI", "MyPortfolioApi\PersonalAPI.csproj", "{5F4A1E5E-3CCD-49D3-A384-DFD1BF866440}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalApi", "MyPortfolioApi\PersonalApi.csproj", "{5F4A1E5E-3CCD-49D3-A384-DFD1BF866440}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
