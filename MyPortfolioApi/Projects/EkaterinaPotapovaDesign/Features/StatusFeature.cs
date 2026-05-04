@@ -1,13 +1,9 @@
-﻿namespace PersonalAPI.Projects.EkaterinaPotapovaDesign
+﻿namespace PersonalApi.Projects.EkaterinaPotapovaDesign.Features
 {
-    public static class EkaterinaEndpoint
+    public class StatusFeature
     {
-        private const string Prefix = "/ekaterina";
-
-        public static void MapEkaterinaEndpoint(this WebApplication app)
+        public static void Map(RouteGroupBuilder group)
         {
-            var group = app.MapGroup(Prefix);
-
             group.MapGet("", () => Results.Ok(new
             {
                 project = "EkaterinaPotapova.Design",
@@ -15,7 +11,5 @@
                 version = "1.0.0"
             }));
         }
-
     }
-
 }
