@@ -16,7 +16,9 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 var isDev = builder.Environment.IsDevelopment();
 
-var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+var allowedOrigins = Environment.GetEnvironmentVariable("AllowedOrigins")
+    ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    ?? Array.Empty<string>();
 
 builder.Services.AddCors(options =>
 {
