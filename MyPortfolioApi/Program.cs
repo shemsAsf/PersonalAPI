@@ -19,6 +19,7 @@ var isDev = builder.Environment.IsDevelopment();
 var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string>()
     ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
     ?? Array.Empty<string>();
+Console.WriteLine($"[CORS] Loaded {allowedOrigins.Length} origins: {string.Join(", ", allowedOrigins)}");
 
 builder.Services.AddCors(options =>
 {
