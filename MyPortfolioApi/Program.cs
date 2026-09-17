@@ -17,6 +17,7 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+Console.WriteLine($"[CORS] Loaded {allowedOrigins.Length} origins: {string.Join(", ", allowedOrigins)}");
 
 builder.Services.AddCors(options =>
 {
