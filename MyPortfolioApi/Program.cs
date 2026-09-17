@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -15,8 +14,11 @@ using Serilog.Sinks.Grafana.Loki;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+var isDev = builder.Environment.IsDevelopment();
 
-var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string>()
+    ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    ?? Array.Empty<string>();
 Console.WriteLine($"[CORS] Loaded {allowedOrigins.Length} origins: {string.Join(", ", allowedOrigins)}");
 
 builder.Services.AddCors(options =>
@@ -63,27 +65,51 @@ builder.Services.AddSingleton(r2Settings);
 builder.Services.AddSingleton<R2Service>();
 
 builder.Host.UseSerilog((ctx, cfg) =>
+{
     cfg.ReadFrom.Configuration(ctx.Configuration)
-       .WriteTo.Console()
-       .WriteTo.GrafanaLoki(
-           "https://logs-prod-us-central1.grafana.net",
-           credentials: new LokiCredentials
-           {
-               Login = "your-loki-user-id",
-               Password = ctx.Configuration["GRAFANA_LOKI_TOKEN"]
-           },
-           labels: new[] { new LokiLabel { Key = "app", Value = "your-api" } }
-       ));
+       .WriteTo.Console();
 
-builder.Services.AddOpenTelemetry()
-    .WithTracing(t => t
-        .SetResourceBuilder(ResourceBuilder.CreateDefault()
-            .AddService("your-api"))
-        .AddAspNetCoreInstrumentation()
-        .AddOtlpExporter(o => {
-            o.Endpoint = new Uri(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]!);
-            o.Headers = $"Authorization=Basic {builder.Configuration["GRAFANA_OTLP_TOKEN"]}";
-        }));
+    if (!isDev)
+    {
+        var lokiToken = ctx.Configuration["GRAFANA_LOKI_TOKEN"];
+        var lokiUser = ctx.Configuration["GRAFANA_LOKI_USER"];
+        var lokiUrl = ctx.Configuration["GRAFANA_LOKI_URL"]
+                      ?? "https://logs-prod-us-central1.grafana.net";
+
+        if (!string.IsNullOrEmpty(lokiToken))
+        {
+            cfg.WriteTo.GrafanaLoki(
+                lokiUrl,
+                credentials: new LokiCredentials
+                {
+                    Login = lokiUser,
+                    Password = lokiToken
+                },
+                labels: new[] { new LokiLabel { Key = "app", Value = "personal-api" } }
+            );
+        }
+    }
+});
+
+if (!isDev)
+{
+    var otlpEndpoint = builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];
+    var otlpToken = builder.Configuration["GRAFANA_OTLP_TOKEN"];
+
+    if (!string.IsNullOrEmpty(otlpEndpoint) && !string.IsNullOrEmpty(otlpToken))
+    {
+        builder.Services.AddOpenTelemetry()
+            .WithTracing(t => t
+                .SetResourceBuilder(ResourceBuilder.CreateDefault()
+                    .AddService("personal-api"))
+                .AddAspNetCoreInstrumentation()
+                .AddOtlpExporter(o => {
+                    o.Endpoint = new Uri(otlpEndpoint);
+                    o.Headers = $"Authorization=Basic {otlpToken}";
+                }));
+    }
+}
+
 
 var app = builder.Build();
 
@@ -107,6 +133,8 @@ app.MapEkaterinaEndpoint(ekaterinaSettings);
 app.MapPortfolioEndpoint();
 
 app.UseHttpMetrics();
-app.MapMetrics();
+
+if (!isDev)
+    app.MapMetrics(); 
 
 app.Run();

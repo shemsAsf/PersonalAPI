@@ -120,11 +120,21 @@ namespace PersonalApi.Projects.EkaterinaPotapovaDesign.Features
                     .RequireAuthenticatedUser());
         }
 
-        public static async Task VersionFileIfExists(IR2Service r2, string path)
+        /// <summary>
+        /// Archive the already existing file at <paramref name="path"/> 
+        /// save it as <c>file-old-00x.ext</c> to allow rollbacks
+        /// </summary>
+        /// <param name="r2"></param>
+        /// <param name="path"></param>
+        /// <param name="incomingContent"></param>
+        /// <returns>The existing file content if the file was found in the bucket;
+        /// <see langword="null"/> if no file existed</returns>
+        public static async Task<string?> VersionFileIfExists(IR2Service r2, string path, string? incomingContent = null)
         {
             var existing = await r2.GetTextAsync(path);
 
-            if (existing is null) return;
+            if (existing is null) return null;
+            if (incomingContent is not null && existing.ToLower() == incomingContent.ToLower()) return existing;
 
             string? dir = Path.GetDirectoryName(path)?.Replace('\\', '/');
             string fileName = Path.GetFileNameWithoutExtension(path);
@@ -134,10 +144,9 @@ namespace PersonalApi.Projects.EkaterinaPotapovaDesign.Features
             string newPath = "";
             string? taken = existing;
 
-            while(taken is not null && count<999)
+            while(taken is not null && count<=999)
             {
                 newPath = $"{dir}/{fileName}-old-{count:D3}{ext}";
-                Console.WriteLine(newPath);
 
                 taken = await r2.GetTextAsync(newPath);
                 count++;
@@ -145,19 +154,8 @@ namespace PersonalApi.Projects.EkaterinaPotapovaDesign.Features
 
             using var archiveStream = new MemoryStream(Encoding.UTF8.GetBytes(existing));
             await r2.PutFileAsync(newPath, archiveStream, "application/json");
-        }
 
-        public static ProjectSummary ResolveToolUrls(IR2Service r2, ProjectSummary index)
-        {
-            var updatedTools = index.Tools?
-                    .Select(tool => r2.GetPublicUrl($"ekaterinaDesign/globals/tools/{tool}.png"))
-                    .Distinct()
-                    .ToList() ?? new List<string>();
-
-            return index with
-            {
-                Tools = updatedTools
-            };
+            return existing;
         }
 
         public static async Task<string> MergeIndexEntry(IR2Service r2, ProjectSummary incomingIndex)
@@ -187,25 +185,38 @@ namespace PersonalApi.Projects.EkaterinaPotapovaDesign.Features
 
         public static async Task PublishPageBody(IR2Service r2, int id, JsonElement body)
         {
-            await VersionFileIfExists(r2, ProjectPath(id));
-            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(body.GetRawText()));
+            string bodyTxt = body.GetRawText();
+            string? existingBody = await VersionFileIfExists(r2, ProjectPath(id), bodyTxt);
+            if (existingBody is not null && existingBody.ToLower() == bodyTxt.ToLower()) return;
+
+            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(bodyTxt));
             await r2.PutFileAsync(ProjectPath(id), stream, "application/json");
         }
 
         public static async Task<bool> PublishIndex(IR2Service r2, JsonElement index)
         {
-            var incomingIndex = JsonSerializer.Deserialize<ProjectSummary>(
-                   index.GetRawText(), JsonOptions
-               );
+            ProjectSummary? incomingIndex;
+
+            try
+            {
+                incomingIndex = JsonSerializer.Deserialize<ProjectSummary>(
+                    index.GetRawText(), JsonOptions
+                );
+            }
+            catch (JsonException ex)
+            {
+                Console.Error.WriteLine("PublishIndex threz the following exception " + ex.Message);
+                return false;
+            }
 
             if (incomingIndex is null)
                 return false;
 
-
-            await VersionFileIfExists(r2, IndexPath);
-
-            incomingIndex = ResolveToolUrls(r2, incomingIndex);
             string finalJson = await MergeIndexEntry(r2, incomingIndex);
+            string? existingIndex = await VersionFileIfExists(r2, IndexPath, finalJson);
+
+            if (existingIndex is not null && existingIndex.ToLower() == finalJson.ToLower()) return true;
+
             var indexStream = new MemoryStream(Encoding.UTF8.GetBytes(finalJson));
             await r2.PutFileAsync(IndexPath, indexStream, "application/json");
 
