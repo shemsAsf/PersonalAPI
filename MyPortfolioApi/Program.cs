@@ -1,17 +1,9 @@
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using OpenTelemetry.Resources;
-using OpenTelemetry.Trace;
 using PersonalApi.Auth;
-using PersonalApi.Database;
+using PersonalApi.Projects.EkaterinaPotapovaDesign.Features;
 using PersonalApi.Storage;
 using PersonalAPI.GlobalEndpoints;
 using PersonalAPI.Projects.EkaterinaPotapovaDesign;
 using PersonalAPI.Projects.Portfolio;
-using Prometheus;
-using Serilog;
-using Serilog.Sinks.Grafana.Loki;
-using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 var isDev = builder.Environment.IsDevelopment();
@@ -57,7 +49,13 @@ builder.Services.AddAuthentication()
 
 builder.Services.AddAuthorization();
 
-builder.Services.AddDbContext<AppDbContext>();
+builder.Services
+    .AddOptions<EkaterinaAdminOptions>()
+    .Bind(builder.Configuration.GetSection(EkaterinaAdminOptions.SectionName))
+    .Validate(o => !string.IsNullOrWhiteSpace(o.Username)
+                && !string.IsNullOrWhiteSpace(o.PasswordHash),
+              "EkaterinaAdmin credentials are missing")
+    .ValidateOnStart();
 
 var r2Settings = builder.Configuration.GetSection("R2").Get<R2Settings>()!;
 
@@ -114,16 +112,6 @@ if (!isDev)
 var app = builder.Build();
 
 app.UseCors("DynamicCorsPolicy");
-
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-    db.Database.Migrate();
-    db.Database.EnsureCreated();
-    db.GenerateFirstAdmin(ekaterinaSettings);
-    db.SaveChanges();
-}
 
 app.UseAuthentication();
 app.UseAuthorization();
