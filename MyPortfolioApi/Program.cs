@@ -1,9 +1,17 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using PersonalApi.Auth;
 using PersonalApi.Projects.EkaterinaPotapovaDesign.Features;
 using PersonalApi.Storage;
 using PersonalAPI.GlobalEndpoints;
 using PersonalAPI.Projects.EkaterinaPotapovaDesign;
 using PersonalAPI.Projects.Portfolio;
+using Prometheus;
+using Serilog;
+using Serilog.Sinks.Grafana.Loki;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 var isDev = builder.Environment.IsDevelopment();
@@ -70,7 +78,7 @@ builder.Host.UseSerilog((ctx, cfg) =>
     if (!isDev)
     {
         var lokiToken = ctx.Configuration["GRAFANA_LOKI_TOKEN"];
-        var lokiUser = ctx.Configuration["GRAFANA_LOKI_USER"];
+        var lokiUser = ctx.Configuration["GRAFANA_LOKI_USER"]!;
         var lokiUrl = ctx.Configuration["GRAFANA_LOKI_URL"]
                       ?? "https://logs-prod-us-central1.grafana.net";
 
@@ -107,7 +115,6 @@ if (!isDev)
                 }));
     }
 }
-
 
 var app = builder.Build();
 

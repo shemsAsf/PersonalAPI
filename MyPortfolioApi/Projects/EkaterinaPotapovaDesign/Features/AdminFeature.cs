@@ -1,4 +1,7 @@
-﻿using PersonalApi.Auth;
+﻿using Microsoft.Extensions.Options;
+using PersonalApi.Auth;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace PersonalApi.Projects.EkaterinaPotapovaDesign.Features
 {
