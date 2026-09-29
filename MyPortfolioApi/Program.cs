@@ -3,7 +3,7 @@ using Microsoft.IdentityModel.Tokens;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using PersonalApi.Auth;
-using PersonalApi.Database;
+using PersonalApi.Projects.EkaterinaPotapovaDesign.Features;
 using PersonalApi.Storage;
 using PersonalAPI.GlobalEndpoints;
 using PersonalAPI.Projects.EkaterinaPotapovaDesign;
@@ -57,7 +57,13 @@ builder.Services.AddAuthentication()
 
 builder.Services.AddAuthorization();
 
-builder.Services.AddDbContext<AppDbContext>();
+builder.Services
+    .AddOptions<EkaterinaAdminOptions>()
+    .Bind(builder.Configuration.GetSection(EkaterinaAdminOptions.SectionName))
+    .Validate(o => !string.IsNullOrWhiteSpace(o.Username)
+                && !string.IsNullOrWhiteSpace(o.PasswordHash),
+              "EkaterinaAdmin credentials are missing")
+    .ValidateOnStart();
 
 var r2Settings = builder.Configuration.GetSection("R2").Get<R2Settings>()!;
 
@@ -72,7 +78,7 @@ builder.Host.UseSerilog((ctx, cfg) =>
     if (!isDev)
     {
         var lokiToken = ctx.Configuration["GRAFANA_LOKI_TOKEN"];
-        var lokiUser = ctx.Configuration["GRAFANA_LOKI_USER"];
+        var lokiUser = ctx.Configuration["GRAFANA_LOKI_USER"]!;
         var lokiUrl = ctx.Configuration["GRAFANA_LOKI_URL"]
                       ?? "https://logs-prod-us-central1.grafana.net";
 
@@ -110,20 +116,9 @@ if (!isDev)
     }
 }
 
-
 var app = builder.Build();
 
 app.UseCors("DynamicCorsPolicy");
-
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-    db.Database.Migrate();
-    db.Database.EnsureCreated();
-    db.GenerateFirstAdmin(ekaterinaSettings);
-    db.SaveChanges();
-}
 
 app.UseAuthentication();
 app.UseAuthorization();
